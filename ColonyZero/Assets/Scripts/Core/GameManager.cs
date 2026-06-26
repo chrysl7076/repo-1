@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -15,6 +16,7 @@ public class GameManager : MonoBehaviour
 
     [Header("References")]
     public BuildingPanel buildingPanel;
+    public BuildingData[] allBuildings;
 
     [Header("Win Condition")]
     public GameObject winPanel;
@@ -27,7 +29,9 @@ public class GameManager : MonoBehaviour
     public int PrestigeLevel = 0;
     public GameObject prestigePanel;
 
-    // +10% production per prestige level, stacking multiplicatively
+    [Header("Offline Earnings")]
+    public OfflineEarningsPanel offlineEarningsPanel;
+
     public float ProductionMultiplier => 1f + PrestigeLevel * 0.10f;
 
     private Dictionary<BuildingData, int> _owned = new();
@@ -41,11 +45,22 @@ public class GameManager : MonoBehaviour
         }
         Instance = this;
         SaveManager.Instance?.LoadGame(this);
+        CalculateOfflineEarnings();
         StartCoroutine(PassiveIncome());
+    }
+
+    private void OnApplicationQuit() => SaveManager.Instance?.SaveGame(this);
+
+    private void OnApplicationPause(bool paused)
+    {
+        if (paused) SaveManager.Instance?.SaveGame(this);
     }
 
     public int GetOwned(BuildingData data)
         => _owned.TryGetValue(data, out int n) ? n : 0;
+
+    public void SetOwned(BuildingData data, int count)
+        => _owned[data] = count;
 
     public void RegisterPurchase(BuildingData data)
     {
@@ -77,10 +92,8 @@ public class GameManager : MonoBehaviour
         return false;
     }
 
-    // Returns true when the player qualifies to prestige
     public bool IsWinConditionMet() => _owned.Count >= 6 && Colonists >= 5;
 
-    // Resets buildings and minerals, increments prestige level
     public void Prestige()
     {
         PrestigeLevel++;
@@ -95,6 +108,41 @@ public class GameManager : MonoBehaviour
         SaveManager.Instance?.SaveGame(this);
     }
 
+    private void CalculateOfflineEarnings()
+    {
+        string savedStr = PlayerPrefs.GetString("LastSaveTime", "0");
+        if (!long.TryParse(savedStr, out long lastSave) || lastSave == 0) return;
+
+        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        long elapsed = Math.Min(now - lastSave, 8L * 3600L);
+        if (elapsed <= 0) return;
+
+        float minerals = 0, energy = 0, oxygen = 0, colonists = 0;
+        float mult = ProductionMultiplier;
+
+        foreach (var kvp in _owned)
+        {
+            BuildingData d = kvp.Key;
+            int n = kvp.Value;
+            minerals  += d.mineralsPerTick    * n * mult * elapsed;
+            energy    += d.energyPerTick      * n * mult * elapsed;
+            energy    -= d.energyDrain        * n        * elapsed;
+            oxygen    += d.oxygenPerTick      * n * mult * elapsed;
+            colonists += d.populationPerTick  * n * mult * elapsed;
+        }
+
+        Minerals  = Mathf.Max(0, Minerals  + minerals);
+        Energy    = Mathf.Max(0, Energy    + energy);
+        Oxygen    = Mathf.Max(0, Oxygen    + oxygen);
+        Colonists = Mathf.Max(0, Colonists + colonists);
+
+        if (offlineEarningsPanel != null)
+        {
+            offlineEarningsPanel.Show(elapsed, minerals, energy, oxygen, colonists);
+            offlineEarningsPanel.gameObject.SetActive(true);
+        }
+    }
+
     private IEnumerator PassiveIncome()
     {
         while (true)
@@ -106,16 +154,16 @@ public class GameManager : MonoBehaviour
             {
                 BuildingData d = kvp.Key;
                 int n = kvp.Value;
-                Minerals += d.mineralsPerTick * n * mult;
-                Energy += d.energyPerTick * n * mult;
-                Oxygen += d.oxygenPerTick * n * mult;
+                Minerals  += d.mineralsPerTick   * n * mult;
+                Energy    += d.energyPerTick     * n * mult;
+                Oxygen    += d.oxygenPerTick     * n * mult;
                 Colonists += d.populationPerTick * n * mult;
-                Energy -= d.energyDrain * n;
+                Energy    -= d.energyDrain       * n;
             }
 
-            Minerals = Mathf.Max(0, Minerals);
-            Energy = Mathf.Max(0, Energy);
-            Oxygen = Mathf.Max(0, Oxygen);
+            Minerals  = Mathf.Max(0, Minerals);
+            Energy    = Mathf.Max(0, Energy);
+            Oxygen    = Mathf.Max(0, Oxygen);
 
             CheckWinCondition();
             buildingPanel?.RefreshAll();
