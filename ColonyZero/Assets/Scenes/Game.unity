@@ -5283,10 +5283,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Click the planet to mine Minerals. Click any building card to buy it. Costs:
+  m_text: 'Click the planet to mine Minerals. Click any building card to buy it. Costs:
     Solar Panel 40M, Mining Rig 50M, Biodome 80M, Habitat Module 120M, Research Lab
     200M, Orbital Launcher 500M. Own 1 of each and reach 5 Colonists to win! Habitat
-    Modules grow your Population.
+    Modules grow your Population.'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
