@@ -92,7 +92,13 @@ public class GameManager : MonoBehaviour
         return false;
     }
 
-    public bool IsWinConditionMet() => _owned.Count >= 6 && Colonists >= 5;
+    public bool IsWinConditionMet()
+    {
+        if (allBuildings == null || allBuildings.Length == 0) return false;
+        foreach (var b in allBuildings)
+            if (GetOwned(b) < 1) return false;
+        return Colonists >= 5;
+    }
 
     public void Prestige()
     {
