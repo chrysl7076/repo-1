@@ -109,7 +109,7 @@ public class GameManager : MonoBehaviour
             // fallback if allBuildings not wired up in Inspector
             allBuildingsOwned = _owned.Count >= 6;
         }
-        return allBuildingsOwned && Colonists >= 5;
+        return allBuildingsOwned;
     }
 
     public void Prestige()
@@ -121,7 +121,7 @@ public class GameManager : MonoBehaviour
         Colonists = 0f;
         _owned.Clear();
         _hasWon = false;
-        prestigePanel?.SetActive(false);
+        winPanel?.SetActive(false);
         buildingPanel?.RefreshAll();
         SaveManager.Instance?.SaveGame(this);
     }
@@ -195,7 +195,7 @@ public class GameManager : MonoBehaviour
         if (IsWinConditionMet())
         {
             _hasWon = true;
-            prestigePanel?.SetActive(true);
+            winPanel?.SetActive(true);
         }
     }
 
