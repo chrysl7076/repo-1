@@ -7,424 +7,689 @@
   <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; font-family: Arial, sans-serif; }
+    body { background: #000; font-family: Arial, sans-serif; overflow: hidden; }
+
+    .hud {
+      position: fixed; z-index: 9999;
+      border-radius: 10px; font-size: 13px; font-weight: 600;
+      cursor: pointer; backdrop-filter: blur(10px);
+      border: 1px solid rgba(167,139,250,0.35);
+      transition: background 0.18s, transform 0.1s;
+    }
+    .hud:hover  { transform: scale(1.04); }
+    .hud:active { transform: scale(0.97); }
 
     #back-btn {
-      position: fixed;
-      top: 16px;
-      left: 16px;
-      z-index: 9999;
-      background: rgba(124, 58, 237, 0.85);
-      color: #fff;
-      border: 1px solid rgba(167, 139, 250, 0.5);
-      border-radius: 10px;
-      padding: 8px 16px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      backdrop-filter: blur(8px);
-      transition: background 0.2s;
+      top: 16px; left: 16px;
+      background: rgba(109,40,217,0.82);
+      color: #fff; padding: 9px 18px;
     }
-    #back-btn:hover { background: rgba(109, 40, 217, 0.95); }
+    #back-btn:hover { background: rgba(124,58,237,0.96); }
+
+    #sound-btn {
+      top: 16px; right: 16px;
+      background: rgba(10,10,30,0.72);
+      color: rgba(167,139,250,0.9);
+      padding: 9px 14px; font-size: 17px;
+    }
 
     #role-label {
-      position: fixed;
-      top: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 9999;
-      background: rgba(0, 0, 0, 0.6);
-      color: rgba(167, 139, 250, 0.9);
-      border: 1px solid rgba(124, 58, 237, 0.4);
-      border-radius: 10px;
-      padding: 6px 18px;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      backdrop-filter: blur(8px);
-      white-space: nowrap;
+      position: fixed; top: 16px; left: 50%;
+      transform: translateX(-50%); z-index: 9999;
+      background: rgba(5,5,20,0.75);
+      color: rgba(196,181,253,0.95);
+      border: 1px solid rgba(124,58,237,0.4);
+      border-radius: 10px; padding: 7px 22px;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.09em; text-transform: uppercase;
+      backdrop-filter: blur(10px); white-space: nowrap;
+      max-width: calc(100vw - 230px);
+      overflow: hidden; text-overflow: ellipsis;
     }
 
     #hint {
-      position: fixed;
-      bottom: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 9999;
-      color: rgba(255,255,255,0.4);
-      font-size: 12px;
-      pointer-events: none;
-      white-space: nowrap;
+      position: fixed; bottom: 18px; left: 50%;
+      transform: translateX(-50%); z-index: 9999;
+      color: rgba(255,255,255,0.32); font-size: 12px;
+      pointer-events: none; white-space: nowrap; letter-spacing: 0.04em;
     }
 
-    a-scene { width: 100vw; height: 100vh; }
+    a-scene { width: 100vw; height: 100vh; display: block; }
   </style>
 </head>
 <body>
 
-  <button id="back-btn" onclick="history.back()">← Back to Dashboard</button>
-  <div id="role-label">Loading…</div>
-  <div id="hint">Click + drag to look around</div>
+<button id="back-btn" class="hud" onclick="window.location.href='/'">← Back to Dashboard</button>
+<div id="role-label">Loading…</div>
+<button id="sound-btn" class="hud" title="Toggle ambient sound">🔇</button>
+<div id="hint">Click &amp; drag to look around · Scroll to zoom</div>
 
-  <a-scene
-    background="color: #080818"
-    renderer="antialias: true; colorManagement: true"
-    vr-mode-ui="enabled: false"
-    loading-screen="backgroundColor: #080818; dotsColor: #7c3aed"
-  >
+<a-scene
+  background="color: #06061a"
+  renderer="antialias: true; colorManagement: true"
+  vr-mode-ui="enabled: false"
+  loading-screen="backgroundColor: #06061a; dotsColor: #7c3aed"
+>
 
-    <!-- ── Camera ─────────────────────────────────────────────────────── -->
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera
-        look-controls="pointerLockEnabled: false; magicWindowTrackingEnabled: false"
-        wasd-controls="enabled: false"
-        cursor="rayOrigin: mouse"
-        fov="75"
-      ></a-camera>
-    </a-entity>
+  <!-- ══ CAMERA ════════════════════════════════════════════════════════════ -->
+  <a-entity id="rig" position="0 1.6 2">
+    <a-camera id="cam"
+      look-controls="pointerLockEnabled: false; magicWindowTrackingEnabled: false"
+      wasd-controls="enabled: false"
+      fov="72">
+    </a-camera>
+  </a-entity>
 
-    <!-- ── Lighting ───────────────────────────────────────────────────── -->
-    <a-light type="ambient" color="#9370DB" intensity="0.6"></a-light>
-    <a-light type="directional" color="#ffffff" intensity="0.8" position="0 6 -4"></a-light>
-    <a-light type="point" color="#7c3aed" intensity="1.8" distance="18" position="0 4 0"></a-light>
-    <a-light type="point" color="#0ea5e9" intensity="1.0" distance="12" position="-5 3 -5"></a-light>
-    <a-light type="point" color="#a855f7" intensity="0.8" distance="10" position="5 2 3"></a-light>
+  <!-- ══ LIGHTS ════════════════════════════════════════════════════════════ -->
+  <a-light type="ambient"     color="#1e1050" intensity="1.4"></a-light>
+  <a-light type="directional" color="#ffffff" intensity="0.6" position="2 8 -4"></a-light>
+  <a-light type="point" color="#7c3aed" intensity="2.8" distance="22" position="0 4.5  0"></a-light>
+  <a-light type="point" color="#0ea5e9" intensity="1.6" distance="15" position="-5 3  -5"></a-light>
+  <a-light type="point" color="#a855f7" intensity="1.2" distance="13" position=" 5 2   5"></a-light>
+  <a-light type="point" color="#4f46e5" intensity="0.9" distance="11" position=" 0 1  -7"></a-light>
 
-    <!-- ── Room geometry ─────────────────────────────────────────────── -->
-    <!-- Floor -->
-    <a-plane
-      position="0 0 0"
-      rotation="-90 0 0"
-      width="20" height="20"
-      material="color: #0d0d2b; roughness: 0.3; metalness: 0.6"
-    ></a-plane>
+  <!-- ══ ROOM ══════════════════════════════════════════════════════════════ -->
+  <a-plane position="0 0 0"   rotation="-90 0 0" width="20" height="20"
+    material="color:#09091f; roughness:0.2; metalness:0.7"></a-plane>
+  <a-plane position="0 5 0"   rotation=" 90 0 0" width="20" height="20"
+    material="color:#070714; roughness:0.9"></a-plane>
+  <a-plane position="0 2.5 -8"  rotation="0   0 0" width="20" height="5"
+    material="color:#0c0c26; roughness:0.9"></a-plane>
+  <a-plane position="0 2.5  8"  rotation="0 180 0" width="20" height="5"
+    material="color:#0c0c26; roughness:0.9"></a-plane>
+  <a-plane position="-8 2.5 0"  rotation="0  90 0" width="20" height="5"
+    material="color:#0c0c26; roughness:0.9"></a-plane>
+  <a-plane position=" 8 2.5 0"  rotation="0 -90 0" width="20" height="5"
+    material="color:#0c0c26; roughness:0.9"></a-plane>
 
-    <!-- Ceiling -->
-    <a-plane
-      position="0 5 0"
+  <!-- Floor grid -->
+  <a-box position="0 0.01 -8" width="20" height="0.02" depth="0.10"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:0.9; transparent:true; opacity:0.55"></a-box>
+  <a-box position="0 0.01  8" width="20" height="0.02" depth="0.10"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:0.9; transparent:true; opacity:0.55"></a-box>
+  <a-box position="-8 0.01 0" width="0.10" height="0.02" depth="20"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:0.9; transparent:true; opacity:0.55"></a-box>
+  <a-box position=" 8 0.01 0" width="0.10" height="0.02" depth="20"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:0.9; transparent:true; opacity:0.55"></a-box>
+  <a-box position="0 0.01 -4" width="20" height="0.02" depth="0.04"
+    material="color:#4f46e5; transparent:true; opacity:0.28"></a-box>
+  <a-box position="0 0.01  4" width="20" height="0.02" depth="0.04"
+    material="color:#4f46e5; transparent:true; opacity:0.28"></a-box>
+  <a-box position="-4 0.01 0" width="0.04" height="0.02" depth="20"
+    material="color:#4f46e5; transparent:true; opacity:0.28"></a-box>
+  <a-box position=" 4 0.01 0" width="0.04" height="0.02" depth="20"
+    material="color:#4f46e5; transparent:true; opacity:0.28"></a-box>
+  <a-box position="0 0.01 0" width="20"   height="0.02" depth="0.055"
+    material="color:#6d28d9; emissive:#6d28d9; emissiveIntensity:0.7; transparent:true; opacity:0.5"></a-box>
+  <a-box position="0 0.01 0" width="0.055" height="0.02" depth="20"
+    material="color:#6d28d9; emissive:#6d28d9; emissiveIntensity:0.7; transparent:true; opacity:0.5"></a-box>
+
+  <!-- Ceiling strips -->
+  <a-box position="0 4.98 0" width="18" height="0.02" depth="0.10"
+    material="color:#a78bfa; emissive:#a78bfa; emissiveIntensity:0.8; transparent:true; opacity:0.6"></a-box>
+  <a-box position="0 4.98 0" width="0.10" height="0.02" depth="18"
+    material="color:#a78bfa; emissive:#a78bfa; emissiveIntensity:0.8; transparent:true; opacity:0.6"></a-box>
+
+  <!-- Wall top accent strips -->
+  <a-box position="0 4.95 -7.99" width="20" height="0.055" depth="0.04"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:0.6; transparent:true; opacity:0.45"></a-box>
+  <a-box position="0 4.95  7.99" width="20" height="0.055" depth="0.04"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:0.6; transparent:true; opacity:0.45"></a-box>
+  <a-box position="-7.99 4.95 0" width="0.04" height="0.055" depth="20"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:0.6; transparent:true; opacity:0.45"></a-box>
+  <a-box position=" 7.99 4.95 0" width="0.04" height="0.055" depth="20"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:0.6; transparent:true; opacity:0.45"></a-box>
+
+  <!-- Corner pillars + glow bases -->
+  <a-box position="-7.8 2.5 -7.8" width="0.35" height="5" depth="0.35"
+    material="color:#17154a; roughness:0.3; metalness:0.75"></a-box>
+  <a-box position=" 7.8 2.5 -7.8" width="0.35" height="5" depth="0.35"
+    material="color:#17154a; roughness:0.3; metalness:0.75"></a-box>
+  <a-box position="-7.8 2.5  7.8" width="0.35" height="5" depth="0.35"
+    material="color:#17154a; roughness:0.3; metalness:0.75"></a-box>
+  <a-box position=" 7.8 2.5  7.8" width="0.35" height="5" depth="0.35"
+    material="color:#17154a; roughness:0.3; metalness:0.75"></a-box>
+  <a-box position="-7.8 0.06 -7.8" width="0.52" height="0.06" depth="0.52"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:1.2; transparent:true; opacity:0.75"></a-box>
+  <a-box position=" 7.8 0.06 -7.8" width="0.52" height="0.06" depth="0.52"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:1.2; transparent:true; opacity:0.75"></a-box>
+  <a-box position="-7.8 0.06  7.8" width="0.52" height="0.06" depth="0.52"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:1.2; transparent:true; opacity:0.75"></a-box>
+  <a-box position=" 7.8 0.06  7.8" width="0.52" height="0.06" depth="0.52"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:1.2; transparent:true; opacity:0.75"></a-box>
+
+  <!-- ══ HOLOGRAPHIC PLATFORM ══════════════════════════════════════════════ -->
+  <a-cylinder position="0 0.04 0" radius="2.1" height="0.06"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:0.7; transparent:true; opacity:0.35"
+    animation="property: material.opacity; from:0.22; to:0.48; dur:2200; loop:true; dir:alternate; easing:easeInOutSine">
+  </a-cylinder>
+  <a-cylinder position="0 0.03 0" radius="2.6" height="0.02"
+    material="color:#4f46e5; transparent:true; opacity:0.18">
+  </a-cylinder>
+  <a-torus position="0 0.08 0" radius="1.9" radius-tubular="0.025" rotation="90 0 0"
+    material="color:#a78bfa; emissive:#a78bfa; emissiveIntensity:1; transparent:true; opacity:0.55"
+    animation="property: rotation; to: 450 0 0; dur: 6000; loop: true; easing: linear">
+  </a-torus>
+
+  <!-- ══ CENTRAL WELCOME PANEL ═════════════════════════════════════════════ -->
+  <a-entity id="welcome-panel" position="0 3.1 0">
+
+    <!-- Orbital ring 1: rolling-coin around X -->
+    <a-torus radius="2.1" radius-tubular="0.030"
       rotation="90 0 0"
-      width="20" height="20"
-      material="color: #0a0a1e; roughness: 0.8"
-    ></a-plane>
+      material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:1; transparent:true; opacity:0.42"
+      animation="property: rotation; from: 90 0 0; to: 450 0 0; dur: 13000; loop: true; easing: linear">
+    </a-torus>
 
-    <!-- Back wall -->
-    <a-plane
-      position="0 2.5 -8"
+    <!-- Orbital ring 2: spinning portal around Y -->
+    <a-torus radius="1.75" radius-tubular="0.022"
       rotation="0 0 0"
-      width="20" height="5"
-      material="color: #0f0f2e; roughness: 0.9"
-    ></a-plane>
+      material="color:#0ea5e9; emissive:#0ea5e9; emissiveIntensity:0.9; transparent:true; opacity:0.36"
+      animation="property: rotation; from: 0 0 0; to: 0 360 0; dur: 9500; loop: true; easing: linear">
+    </a-torus>
 
-    <!-- Front wall -->
-    <a-plane
-      position="0 2.5 8"
-      rotation="0 180 0"
-      width="20" height="5"
-      material="color: #0f0f2e; roughness: 0.9"
-    ></a-plane>
+    <!-- Orbital ring 3: tilted orbit -->
+    <a-torus radius="1.92" radius-tubular="0.018"
+      rotation="55 0 30"
+      material="color:#a855f7; emissive:#a855f7; emissiveIntensity:0.8; transparent:true; opacity:0.30"
+      animation="property: rotation; from: 55 0 30; to: 55 360 30; dur: 11000; loop: true; easing: linear">
+    </a-torus>
 
-    <!-- Left wall -->
-    <a-plane
-      position="-8 2.5 0"
-      rotation="0 90 0"
-      width="20" height="5"
-      material="color: #0f0f2e; roughness: 0.9"
-    ></a-plane>
+    <!-- Pulsing outer glow -->
+    <a-plane width="6.2" height="2.5" position="0 0 -0.09"
+      material="color:#4c1d95; emissive:#7c3aed; emissiveIntensity:0.5; transparent:true; opacity:0.14; side:double"
+      animation="property: material.opacity; from:0.08; to:0.26; dur:1900; loop:true; dir:alternate; easing:easeInOutSine">
+    </a-plane>
 
-    <!-- Right wall -->
-    <a-plane
-      position="8 2.5 0"
-      rotation="0 -90 0"
-      width="20" height="5"
-      material="color: #0f0f2e; roughness: 0.9"
-    ></a-plane>
+    <!-- Panel background -->
+    <a-plane width="5.8" height="2.2"
+      material="color:#07072a; transparent:true; opacity:0.95; side:double">
+    </a-plane>
 
-    <!-- Floor grid lines (decorative) -->
-    <a-entity id="floor-grid">
-      <!-- Glowing floor edge strips -->
-      <a-box position="0 0.01 -8"   width="20" height="0.02" depth="0.08" color="#7c3aed" opacity="0.5"></a-box>
-      <a-box position="0 0.01  8"   width="20" height="0.02" depth="0.08" color="#7c3aed" opacity="0.5"></a-box>
-      <a-box position="-8 0.01 0"   width="0.08" height="0.02" depth="20" color="#7c3aed" opacity="0.5"></a-box>
-      <a-box position=" 8 0.01 0"   width="0.08" height="0.02" depth="20" color="#7c3aed" opacity="0.5"></a-box>
-      <!-- Center cross -->
-      <a-box position="0 0.01 0"    width="20" height="0.02" depth="0.04" color="#4f46e5" opacity="0.3"></a-box>
-      <a-box position="0 0.01 0"    width="0.04" height="0.02" depth="20" color="#4f46e5" opacity="0.3"></a-box>
-    </a-entity>
+    <!-- Animated top border -->
+    <a-plane width="5.8" height="0.075" position="0  1.0625 0.01"
+      material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:1.2"
+      animation="property: material.opacity; from:0.55; to:1.0; dur:1050; loop:true; dir:alternate">
+    </a-plane>
+    <!-- Animated bottom border -->
+    <a-plane width="5.8" height="0.075" position="0 -1.0625 0.01"
+      material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:1.2"
+      animation="property: material.opacity; from:0.55; to:1.0; dur:1050; loop:true; dir:alternate; delay:525">
+    </a-plane>
 
-    <!-- Ceiling light strips -->
-    <a-box position=" 0 4.98  0" width="16" height="0.02" depth="0.12" color="#a78bfa" opacity="0.6"></a-box>
-    <a-box position=" 0 4.98  0" width="0.12" height="0.02" depth="16" color="#a78bfa" opacity="0.6"></a-box>
+    <!-- Corner L-accents (top-left) -->
+    <a-plane width="0.42" height="0.075" position="-2.69  1.0625 0.015"
+      material="color:#c4b5fd; emissive:#c4b5fd; emissiveIntensity:1.2"></a-plane>
+    <a-plane width="0.075" height="0.42" position="-2.862  0.875 0.015"
+      material="color:#c4b5fd; emissive:#c4b5fd; emissiveIntensity:1.2"></a-plane>
+    <!-- top-right -->
+    <a-plane width="0.42" height="0.075" position=" 2.69  1.0625 0.015"
+      material="color:#c4b5fd; emissive:#c4b5fd; emissiveIntensity:1.2"></a-plane>
+    <a-plane width="0.075" height="0.42" position=" 2.862  0.875 0.015"
+      material="color:#c4b5fd; emissive:#c4b5fd; emissiveIntensity:1.2"></a-plane>
+    <!-- bottom-left -->
+    <a-plane width="0.42" height="0.075" position="-2.69 -1.0625 0.015"
+      material="color:#c4b5fd; emissive:#c4b5fd; emissiveIntensity:1.2"></a-plane>
+    <a-plane width="0.075" height="0.42" position="-2.862 -0.875 0.015"
+      material="color:#c4b5fd; emissive:#c4b5fd; emissiveIntensity:1.2"></a-plane>
+    <!-- bottom-right -->
+    <a-plane width="0.42" height="0.075" position=" 2.69 -1.0625 0.015"
+      material="color:#c4b5fd; emissive:#c4b5fd; emissiveIntensity:1.2"></a-plane>
+    <a-plane width="0.075" height="0.42" position=" 2.862 -0.875 0.015"
+      material="color:#c4b5fd; emissive:#c4b5fd; emissiveIntensity:1.2"></a-plane>
 
-    <!-- Corner pillars -->
-    <a-box position="-7.8 2.5 -7.8" width="0.3" height="5" depth="0.3" color="#1e1b4b" roughness="0.4" metalness="0.6"></a-box>
-    <a-box position=" 7.8 2.5 -7.8" width="0.3" height="5" depth="0.3" color="#1e1b4b" roughness="0.4" metalness="0.6"></a-box>
-    <a-box position="-7.8 2.5  7.8" width="0.3" height="5" depth="0.3" color="#1e1b4b" roughness="0.4" metalness="0.6"></a-box>
-    <a-box position=" 7.8 2.5  7.8" width="0.3" height="5" depth="0.3" color="#1e1b4b" roughness="0.4" metalness="0.6"></a-box>
+    <!-- Sub-header -->
+    <a-text value="HOLOGRAPHIC SKILLS ASSESSMENT" align="center"
+      color="#5b21b6" width="5.2" position="0 0.72 0.02"></a-text>
 
-    <!-- ── Centre welcome display ────────────────────────────────────── -->
-    <!-- Holographic platform -->
-    <a-cylinder
-      position="0 0.05 0"
-      radius="1.2" height="0.1"
-      material="color: #7c3aed; opacity: 0.4; transparent: true; emissive: #7c3aed; emissiveIntensity: 0.5"
-    ></a-cylinder>
-    <a-cylinder
-      position="0 0.04 0"
-      radius="1.5" height="0.02"
-      material="color: #4f46e5; opacity: 0.2; transparent: true"
-    ></a-cylinder>
+    <!-- Main title -->
+    <a-text value="XR Training Environment" align="center"
+      color="#ede9fe" width="5.5" position="0 0.26 0.02"
+      font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"></a-text>
 
-    <!-- Floating welcome panel -->
-    <a-entity position="0 3.2 0">
-      <!-- Panel background -->
-      <a-plane
-        width="4.5" height="1.4"
-        material="color: #1e1b4b; opacity: 0.88; transparent: true; side: double"
-        position="0 0 0"
-      ></a-plane>
-      <!-- Purple border top -->
-      <a-plane width="4.5" height="0.06" color="#7c3aed" position="0 0.67 0.01"></a-plane>
-      <!-- Purple border bottom -->
-      <a-plane width="4.5" height="0.06" color="#7c3aed" position="0 -0.67 0.01"></a-plane>
+    <!-- Divider -->
+    <a-plane width="5.0" height="0.028" position="0 -0.10 0.02"
+      material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:0.9; transparent:true; opacity:0.7">
+    </a-plane>
 
-      <!-- Main title -->
-      <a-text
-        value="XR Training Environment"
-        align="center"
-        color="#e2d9f3"
-        width="4.2"
-        position="0 0.22 0.02"
-        font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"
-      ></a-text>
-      <!-- Sub text -->
-      <a-text
-        id="welcome-sub"
-        value="Select a role on the dashboard to load your skills"
-        align="center"
-        color="#a78bfa"
-        width="4"
-        position="0 -0.18 0.02"
-      ></a-text>
-    </a-entity>
+    <!-- Role name (updated by JS) -->
+    <a-text id="welcome-role" value="Loading…" align="center"
+      color="#c4b5fd" width="5.4" position="0 -0.50 0.02"
+      font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"></a-text>
 
-    <!-- Vertical glow beam under welcome panel -->
-    <a-cylinder
-      position="0 1.6 0"
-      radius="0.04" height="3.2"
-      material="color: #7c3aed; opacity: 0.25; transparent: true; emissive: #7c3aed; emissiveIntensity: 0.8"
-    ></a-cylinder>
+  </a-entity>
 
-    <!-- ── Skill card slots (populated by JS) ───────────────────────── -->
-    <a-entity id="skill-cards"></a-entity>
+  <!-- Central glow beam -->
+  <a-cylinder position="0 1.55 0" radius="0.042" height="3.1"
+    material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:1.2; transparent:true; opacity:0.18"
+    animation="property: material.opacity; from:0.10; to:0.30; dur:2400; loop:true; dir:alternate; easing:easeInOutSine">
+  </a-cylinder>
 
-    <!-- ── Floating orbs (decorative) ───────────────────────────────── -->
-    <a-sphere position="-6 3.5 -6" radius="0.18" color="#7c3aed" opacity="0.7"
-      animation="property: position; to: -6 3.9 -6; dur: 2800; loop: true; dir: alternate; easing: easeInOutSine">
+  <!-- ══ CORNER ORBS ════════════════════════════════════════════════════════ -->
+  <!-- Each orb: outer glow shell + inner core, bob + rotate + pulse -->
+
+  <!-- Back-left: purple -->
+  <a-entity
+    animation__bob="property: position; from: -5.5 3.0 -5.5; to: -5.5 3.75 -5.5; dur: 2900; loop: true; dir: alternate; easing: easeInOutSine"
+    animation__rot="property: rotation; to: 0 360 0; dur: 7500; loop: true; easing: linear">
+    <a-sphere radius="0.24"
+      material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:1.0; transparent:true; opacity:0.88"
+      animation__pulse="property: scale; from: 1 1 1; to: 1.55 1.55 1.55; dur: 1450; loop:true; dir:alternate; easing:easeInOutSine">
     </a-sphere>
-    <a-sphere position="6 2.8 -6" radius="0.14" color="#0ea5e9" opacity="0.7"
-      animation="property: position; to: 6 3.3 -6; dur: 3200; loop: true; dir: alternate; easing: easeInOutSine">
+    <a-sphere radius="0.38"
+      material="color:#7c3aed; emissive:#7c3aed; emissiveIntensity:0.4; transparent:true; opacity:0.14"
+      animation__pulse="property: scale; from: 1 1 1; to: 1.65 1.65 1.65; dur: 1450; loop:true; dir:alternate; easing:easeInOutSine; delay:220">
     </a-sphere>
-    <a-sphere position="-6 2.6 5" radius="0.16" color="#a855f7" opacity="0.7"
-      animation="property: position; to: -6 3.1 5; dur: 2500; loop: true; dir: alternate; easing: easeInOutSine">
+  </a-entity>
+
+  <!-- Back-right: cyan -->
+  <a-entity
+    animation__bob="property: position; from: 5.5 2.7 -5.5; to: 5.5 3.5 -5.5; dur: 3300; loop: true; dir: alternate; easing: easeInOutSine"
+    animation__rot="property: rotation; to: 0 360 0; dur: 9200; loop: true; easing: linear">
+    <a-sphere radius="0.20"
+      material="color:#0ea5e9; emissive:#0ea5e9; emissiveIntensity:1.0; transparent:true; opacity:0.88"
+      animation__pulse="property: scale; from: 1 1 1; to: 1.6 1.6 1.6; dur: 1750; loop:true; dir:alternate; easing:easeInOutSine">
     </a-sphere>
-    <a-sphere position="6 3.2 5" radius="0.12" color="#6366f1" opacity="0.7"
-      animation="property: position; to: 6 3.7 5; dur: 3600; loop: true; dir: alternate; easing: easeInOutSine">
+    <a-sphere radius="0.32"
+      material="color:#0ea5e9; emissive:#0ea5e9; emissiveIntensity:0.4; transparent:true; opacity:0.13"
+      animation__pulse="property: scale; from: 1 1 1; to: 1.7 1.7 1.7; dur: 1750; loop:true; dir:alternate; easing:easeInOutSine; delay:350">
     </a-sphere>
+  </a-entity>
 
-  </a-scene>
+  <!-- Front-left: violet -->
+  <a-entity
+    animation__bob="property: position; from: -5.5 2.9 5.5; to: -5.5 3.65 5.5; dur: 2600; loop: true; dir: alternate; easing: easeInOutSine"
+    animation__rot="property: rotation; to: 0 360 0; dur: 8100; loop: true; easing: linear">
+    <a-sphere radius="0.22"
+      material="color:#a855f7; emissive:#a855f7; emissiveIntensity:1.0; transparent:true; opacity:0.88"
+      animation__pulse="property: scale; from: 1 1 1; to: 1.5 1.5 1.5; dur: 1600; loop:true; dir:alternate; easing:easeInOutSine">
+    </a-sphere>
+    <a-sphere radius="0.35"
+      material="color:#a855f7; emissive:#a855f7; emissiveIntensity:0.4; transparent:true; opacity:0.13"
+      animation__pulse="property: scale; from: 1 1 1; to: 1.62 1.62 1.62; dur: 1600; loop:true; dir:alternate; easing:easeInOutSine; delay:280">
+    </a-sphere>
+  </a-entity>
 
-  <script>
-    // ── Read role + skills from URL params ─────────────────────────────────
-    const params  = new URLSearchParams(location.search);
-    const role    = params.get('role') || '';
-    const rawSkills = params.get('skills') || '';
+  <!-- Front-right: indigo -->
+  <a-entity
+    animation__bob="property: position; from: 5.5 3.2 5.5; to: 5.5 3.95 5.5; dur: 3700; loop: true; dir: alternate; easing: easeInOutSine"
+    animation__rot="property: rotation; to: 0 360 0; dur: 10500; loop: true; easing: linear">
+    <a-sphere radius="0.17"
+      material="color:#6366f1; emissive:#6366f1; emissiveIntensity:1.0; transparent:true; opacity:0.88"
+      animation__pulse="property: scale; from: 1 1 1; to: 1.7 1.7 1.7; dur: 2000; loop:true; dir:alternate; easing:easeInOutSine">
+    </a-sphere>
+    <a-sphere radius="0.27"
+      material="color:#6366f1; emissive:#6366f1; emissiveIntensity:0.4; transparent:true; opacity:0.12"
+      animation__pulse="property: scale; from: 1 1 1; to: 1.8 1.8 1.8; dur: 2000; loop:true; dir:alternate; easing:easeInOutSine; delay:450">
+    </a-sphere>
+  </a-entity>
 
-    let skills = [];
-    try { skills = JSON.parse(decodeURIComponent(rawSkills)); } catch (_) {}
+  <!-- ══ DYNAMIC CONTENT (JS) ══════════════════════════════════════════════ -->
+  <a-entity id="skill-cards"></a-entity>
+  <a-entity id="particles"></a-entity>
 
-    // ── Update role label in HUD ──────────────────────────────────────────
-    const roleLabel = document.getElementById('role-label');
-    if (role) {
-      roleLabel.textContent = role + ' — VR Training Room';
-    } else {
-      roleLabel.textContent = 'XR Training Environment';
-    }
+</a-scene>
 
-    // ── Update welcome sub-text once scene loads ──────────────────────────
-    document.querySelector('a-scene').addEventListener('loaded', () => {
-      const sub = document.getElementById('welcome-sub');
-      if (role && sub) {
-        sub.setAttribute('value', role);
-        sub.setAttribute('color', '#c4b5fd');
-      }
+<script>
+'use strict';
+
+// ── URL params ──────────────────────────────────────────────────────────────
+const params = new URLSearchParams(location.search);
+const role   = params.get('role') || '';
+let skills   = [];
+try { skills = JSON.parse(decodeURIComponent(params.get('skills') || '[]')); } catch (_) {}
+
+// ── HUD ─────────────────────────────────────────────────────────────────────
+document.getElementById('role-label').textContent =
+  role ? role + ' — VR Training Room' : 'XR Training Environment';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function gapColor(gap) {
+  if (gap >= 5) return '#e11d48';
+  if (gap >= 2) return '#eab308';
+  return '#22c55e';
+}
+function gapTierLabel(gap) {
+  if (gap >= 5) return 'CRITICAL';
+  if (gap >= 2) return 'DEVELOPING';
+  return 'READY';
+}
+function mkEl(tag, attrs) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, String(v));
+  return e;
+}
+function mkPlane(attrs)  { return mkEl('a-plane',  attrs); }
+function mkText(attrs)   { return mkEl('a-text',   attrs); }
+
+// ── Scene loaded ─────────────────────────────────────────────────────────────
+document.querySelector('a-scene').addEventListener('loaded', () => {
+
+  // Welcome role name
+  const wr = document.getElementById('welcome-role');
+  if (wr) wr.setAttribute('value', role || 'Select a role on the dashboard');
+
+  buildSkillCards();
+  buildParticles();
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// SKILL CARDS
+// ════════════════════════════════════════════════════════════════════════════
+function buildSkillCards() {
+  const top3 = [...skills]
+    .map(s => ({ ...s, gap: s.required - s.current }))
+    .sort((a, b) => b.gap - a.gap)
+    .slice(0, 3);
+
+  const container = document.getElementById('skill-cards');
+
+  if (top3.length === 0) {
+    const fb = mkEl('a-entity', { position: '0 2.4 -7.85' });
+    fb.appendChild(mkPlane({ width: 5.5, height: 2.2,
+      material: 'color:#0d0d2b; opacity:0.92; transparent:true' }));
+    fb.appendChild(mkText({
+      value: 'Select an HR role on the\ndashboard to load skill cards',
+      align: 'center', color: '#a78bfa', width: '5.0', position: '0 0 0.01',
+      'wrap-count': '38',
+    }));
+    container.appendChild(fb);
+    return;
+  }
+
+  // Card configs: back wall, left wall, right wall
+  const CFGS = [
+    { position: '0 2.5 -7.85',  rotation: '0 0 0'   },
+    { position: '-7.85 2.5 0',  rotation: '0 90 0'  },
+    { position: '7.85 2.5 0',   rotation: '0 -90 0' },
+  ];
+
+  const CW = 5.4;   // card width
+  const CH = 4.0;   // card height
+  const HH = CH / 2;
+
+  top3.forEach((skill, idx) => {
+    const cfg   = CFGS[idx];
+    const color = gapColor(skill.gap);
+    const label = gapTierLabel(skill.gap);
+    const req   = skill.required ?? 0;
+    const cur   = skill.current  ?? 0;
+    const gapPts = skill.gap > 0
+      ? `+${skill.gap} pts gap`
+      : skill.gap < 0
+        ? `Strength  +${Math.abs(skill.gap)}`
+        : 'On Track';
+
+    const wrap = mkEl('a-entity', { position: cfg.position, rotation: cfg.rotation });
+
+    // ── Outer glow halo ──────────────────────────────────────────────────
+    wrap.appendChild(mkPlane({
+      width: CW + 0.5, height: CH + 0.5, position: `0 0 -0.05`,
+      material: `color:${color}; emissive:${color}; emissiveIntensity:0.35; transparent:true; opacity:0.11; side:double`,
+    }));
+
+    // ── Card body ────────────────────────────────────────────────────────
+    wrap.appendChild(mkPlane({
+      width: CW, height: CH,
+      material: 'color:#070722; transparent:true; opacity:0.96; side:double',
+    }));
+
+    // ── Top color bar ────────────────────────────────────────────────────
+    wrap.appendChild(mkPlane({
+      width: CW, height: 0.10, position: `0 ${HH - 0.05} 0.005`,
+      material: `color:${color}; emissive:${color}; emissiveIntensity:0.9`,
+    }));
+
+    // ── Badge: card number ────────────────────────────────────────────────
+    wrap.appendChild(mkText({
+      value: `#${idx + 1}`, align: 'left', color,
+      width: '1.5', position: `${-HH + 0.28} ${HH - 0.40} 0.01`,
+      'wrap-count': '4',
+    }));
+
+    // ── Badge: tier label ─────────────────────────────────────────────────
+    wrap.appendChild(mkText({
+      value: label, align: 'right', color,
+      width: '2.0', position: `${HH - 0.22} ${HH - 0.40} 0.01`,
+      'wrap-count': '12',
+    }));
+
+    // ── Skill name ────────────────────────────────────────────────────────
+    wrap.appendChild(mkText({
+      value: skill.skill,
+      align: 'center', color: '#ede9fe',
+      width: String(CW - 0.3),
+      position: `0 ${HH - 1.02} 0.01`,
+      font: 'https://cdn.aframe.io/fonts/Exo2Bold.fnt',
+      'wrap-count': '26',
+    }));
+
+    // ── Divider under skill name ──────────────────────────────────────────
+    wrap.appendChild(mkPlane({
+      width: CW - 0.55, height: 0.028, position: `0 ${HH - 1.46} 0.01`,
+      material: `color:${color}; emissive:${color}; emissiveIntensity:0.7; transparent:true; opacity:0.6`,
+    }));
+
+    // ── Score row ────────────────────────────────────────────────────────
+    wrap.appendChild(mkText({
+      value: `Required:  ${req} / 10`, align: 'left', color: '#94a3b8',
+      width: '3.0', position: `${-CW/2 + 0.35} ${HH - 1.82} 0.01`,
+      'wrap-count': '20',
+    }));
+    wrap.appendChild(mkText({
+      value: `Current:  ${cur} / 10`, align: 'right', color: '#94a3b8',
+      width: '3.0', position: `${CW/2 - 0.35} ${HH - 1.82} 0.01`,
+      'wrap-count': '18',
+    }));
+
+    // ── Status bar ───────────────────────────────────────────────────────
+    const barW  = CW - 0.65;         // track width
+    const barY  = HH - 2.20;         // y position of bar row
+    const fillW = Math.max(0.04, (cur / 10) * barW);
+    const fillX = -barW / 2 + fillW / 2;
+    const reqX  = -barW / 2 + (req / 10) * barW;
+
+    // Track
+    wrap.appendChild(mkPlane({
+      width: barW, height: 0.175, position: `0 ${barY} 0.01`,
+      material: 'color:#16163e; transparent:true; opacity:0.95',
+    }));
+    // Current fill
+    wrap.appendChild(mkPlane({
+      width: fillW, height: 0.175, position: `${fillX} ${barY} 0.015`,
+      material: `color:${color}; emissive:${color}; emissiveIntensity:0.55`,
+    }));
+    // Required marker (white tick)
+    wrap.appendChild(mkPlane({
+      width: 0.065, height: 0.30, position: `${reqX} ${barY} 0.02`,
+      material: 'color:#ffffff; emissive:#ffffff; emissiveIntensity:1; transparent:true; opacity:0.92',
+    }));
+
+    // Bar legend
+    wrap.appendChild(mkText({
+      value: 'filled = current   |   line = required',
+      align: 'center', color: '#3d3d60',
+      width: String(barW),
+      position: `0 ${HH - 2.43} 0.01`,
+      'wrap-count': '44',
+    }));
+
+    // ── Gap value ────────────────────────────────────────────────────────
+    wrap.appendChild(mkText({
+      value: gapPts, align: 'center', color,
+      width: '3.6', position: `0 ${HH - 2.88} 0.01`,
+      font: 'https://cdn.aframe.io/fonts/Exo2Bold.fnt',
+      'wrap-count': '22',
+    }));
+
+    // ── Bottom divider ───────────────────────────────────────────────────
+    wrap.appendChild(mkPlane({
+      width: CW - 0.55, height: 0.022, position: `0 ${HH - 3.22} 0.01`,
+      material: `color:${color}; transparent:true; opacity:0.38`,
+    }));
+
+    // ── Insight text ──────────────────────────────────────────────────────
+    const ins = (skill.insight || '').length > 95
+      ? skill.insight.slice(0, 93) + '…'
+      : (skill.insight || '');
+    wrap.appendChild(mkText({
+      value: ins, align: 'center', color: '#4a4a72',
+      width: String(CW - 0.45),
+      position: `0 ${HH - 3.65} 0.01`,
+      'wrap-count': '48',
+    }));
+
+    // ── Bottom color bar ─────────────────────────────────────────────────
+    wrap.appendChild(mkPlane({
+      width: CW, height: 0.075, position: `0 ${-HH + 0.038} 0.005`,
+      material: `color:${color}; emissive:${color}; emissiveIntensity:0.7; transparent:true; opacity:0.5`,
+    }));
+
+    // ── Hover scale ───────────────────────────────────────────────────────
+    wrap.setAttribute('animation__in',
+      'property: scale; to: 1.04 1.04 1.04; dur: 200; startEvents: mouseenter; easing: easeOutQuad');
+    wrap.setAttribute('animation__out',
+      'property: scale; to: 1 1 1; dur: 200; startEvents: mouseleave; easing: easeOutQuad');
+
+    container.appendChild(wrap);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PARTICLE SYSTEM
+// ════════════════════════════════════════════════════════════════════════════
+function buildParticles() {
+  const pc     = document.getElementById('particles');
+  const COLS   = ['#7c3aed','#6d28d9','#4f46e5','#0ea5e9','#a855f7','#8b5cf6','#3b82f6'];
+  const COUNT  = 32;
+
+  for (let i = 0; i < COUNT; i++) {
+    const x    = (Math.random() - 0.5) * 14;
+    const z    = (Math.random() - 0.5) * 14;
+    const r    = 0.022 + Math.random() * 0.048;
+    const dur  = 3800 + Math.random() * 5800;
+    const dly  = Math.floor(Math.random() * 4500);
+    const col  = COLS[Math.floor(Math.random() * COLS.length)];
+    const topY = 0.8 + Math.random() * 3.4;
+
+    const p = mkEl('a-sphere', {
+      radius: r,
+      position: `${x} 0.08 ${z}`,
+      material: `color:${col}; emissive:${col}; emissiveIntensity:0.9; transparent:true; opacity:0.75`,
+      'animation__rise':
+        `property: position; from: ${x} 0.08 ${z}; to: ${x} ${topY} ${z};` +
+        `dur: ${dur}; loop: true; dir: alternate; delay: ${dly}; easing: easeInOutSine`,
+      'animation__fade':
+        `property: material.opacity; from: 0.85; to: 0.02;` +
+        `dur: ${dur}; loop: true; dir: alternate; delay: ${dly}; easing: easeInSine`,
     });
+    pc.appendChild(p);
+  }
+}
 
-    // ── Build skill cards ─────────────────────────────────────────────────
-    //  top-3 skills by gap (required − current), descending
-    const top3 = [...skills]
-      .map(s => ({ ...s, gap: s.required - s.current }))
-      .sort((a, b) => b.gap - a.gap)
-      .slice(0, 3);
+// ════════════════════════════════════════════════════════════════════════════
+// CINEMATIC CAMERA PAN
+// ════════════════════════════════════════════════════════════════════════════
+let cinematicOn   = true;
+let lastInteract  = 0;
+const RESUME_DELAY = 2600;   // ms of stillness before resuming
+const ROT_SPEED   = 1.6;     // degrees / second
 
-    function gapColor(gap) {
-      if (gap >= 5) return '#e11d48';
-      if (gap >= 2) return '#eab308';
-      return '#22c55e';
+document.addEventListener('mousedown',  () => { cinematicOn = false; lastInteract = Date.now(); });
+document.addEventListener('touchstart', () => { cinematicOn = false; lastInteract = Date.now(); }, { passive: true });
+document.addEventListener('mouseup',    () => { lastInteract = Date.now(); });
+document.addEventListener('touchend',   () => { lastInteract = Date.now(); });
+
+let prevTS = 0;
+function cinematicLoop(ts) {
+  if (!cinematicOn && (Date.now() - lastInteract) > RESUME_DELAY) cinematicOn = true;
+
+  if (cinematicOn) {
+    const dt  = Math.min((ts - prevTS) / 1000, 0.05);
+    const rig = document.querySelector('#rig');
+    if (rig) {
+      const rot = rig.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
+      rig.setAttribute('rotation', { x: rot.x, y: (rot.y || 0) + ROT_SPEED * dt, z: rot.z });
     }
-    function gapLabel(gap) {
-      if (gap >= 5) return 'CRITICAL';
-      if (gap >= 2) return 'DEVELOPING';
-      return 'READY';
-    }
+  }
+  prevTS = ts;
+  requestAnimationFrame(cinematicLoop);
+}
+requestAnimationFrame(cinematicLoop);
 
-    // Card positions: back wall (card 0), left wall (card 1), right wall (card 2)
-    const CARD_CONFIGS = [
-      // back wall — facing camera (user starts looking north / -z)
-      { position: '0 2.2 -7.6',   rotation: '0 0 0' },
-      // left wall — facing right (+x)
-      { position: '-7.6 2.2 -1',  rotation: '0 90 0' },
-      // right wall — facing left (-x)
-      { position: '7.6 2.2 -1',   rotation: '0 -90 0' },
-    ];
+// ════════════════════════════════════════════════════════════════════════════
+// WEB AUDIO — ambient futuristic hum
+// ════════════════════════════════════════════════════════════════════════════
+let audioCtx   = null;
+let masterGain = null;
+let soundOn    = false;
+let audioBuilt = false;
 
-    const container = document.getElementById('skill-cards');
+function buildAudio() {
+  if (audioBuilt) return;
+  audioBuilt = true;
+  audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
 
-    top3.forEach((skill, idx) => {
-      const cfg   = CARD_CONFIGS[idx];
-      const color = gapColor(skill.gap);
-      const label = gapLabel(skill.gap);
-      const gap   = skill.gap > 0 ? `+${skill.gap} pts gap` : 'Strength';
-      const req   = skill.required ?? '—';
-      const cur   = skill.current  ?? '—';
+  const filter = audioCtx.createBiquadFilter();
+  filter.type  = 'lowpass';
+  filter.frequency.value = 290;
+  filter.Q.value = 2.0;
 
-      const cardW = 3.2;
-      const cardH = 2.0;
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0;
 
-      // Wrapper entity at wall position
-      const wrapper = document.createElement('a-entity');
-      wrapper.setAttribute('position', cfg.position);
-      wrapper.setAttribute('rotation', cfg.rotation);
+  filter.connect(masterGain);
+  masterGain.connect(audioCtx.destination);
 
-      // Glow backdrop (slightly behind card)
-      const glow = document.createElement('a-plane');
-      glow.setAttribute('width',  cardW + 0.25);
-      glow.setAttribute('height', cardH + 0.25);
-      glow.setAttribute('position', '0 0 -0.02');
-      glow.setAttribute('material', `color: ${color}; opacity: 0.12; transparent: true; side: double`);
-      wrapper.appendChild(glow);
+  // Layered oscillators for a rich drone
+  [
+    { type: 'sine',     freq: 55,   vol: 0.12 },
+    { type: 'sine',     freq: 110,  vol: 0.06 },
+    { type: 'triangle', freq: 82.5, vol: 0.05 },
+    { type: 'sine',     freq: 165,  vol: 0.025 },
+    { type: 'sawtooth', freq: 27.5, vol: 0.03 },
+  ].forEach(({ type, freq, vol }) => {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq; g.gain.value = vol;
+    o.connect(g); g.connect(filter); o.start();
+  });
 
-      // Card face
-      const face = document.createElement('a-plane');
-      face.setAttribute('width',  cardW);
-      face.setAttribute('height', cardH);
-      face.setAttribute('material', 'color: #12123a; opacity: 0.92; transparent: true; side: double');
-      wrapper.appendChild(face);
+  // Slow filter sweep — "breathing" quality
+  (function sweep() {
+    if (!audioCtx) return;
+    const t = audioCtx.currentTime;
+    filter.frequency.setTargetAtTime(240 + 90 * Math.sin(t * 0.22), t, 1.0);
+    setTimeout(sweep, 900);
+  })();
+}
 
-      // Top colour stripe
-      const stripe = document.createElement('a-plane');
-      stripe.setAttribute('width',  cardW);
-      stripe.setAttribute('height', 0.07);
-      stripe.setAttribute('position', `0 ${cardH / 2 - 0.035} 0.005`);
-      stripe.setAttribute('color', color);
-      wrapper.appendChild(stripe);
+function enableSound() {
+  buildAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  soundOn = true;
+  masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+  masterGain.gain.setTargetAtTime(1, audioCtx.currentTime, 1.8);
+  document.getElementById('sound-btn').textContent = '🔊';
+}
+function disableSound() {
+  if (!masterGain) return;
+  soundOn = false;
+  masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.9);
+  document.getElementById('sound-btn').textContent = '🔇';
+}
 
-      // Card number badge
-      const badge = document.createElement('a-text');
-      badge.setAttribute('value',    `#${idx + 1}`);
-      badge.setAttribute('align',    'left');
-      badge.setAttribute('color',    color);
-      badge.setAttribute('width',    1.2);
-      badge.setAttribute('position', `-${cardW / 2 - 0.18} ${cardH / 2 - 0.28} 0.01`);
-      wrapper.appendChild(badge);
+document.getElementById('sound-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  soundOn ? disableSound() : enableSound();
+});
 
-      // Gap tier badge
-      const tierText = document.createElement('a-text');
-      tierText.setAttribute('value',    label);
-      tierText.setAttribute('align',    'right');
-      tierText.setAttribute('color',    color);
-      tierText.setAttribute('width',    1.4);
-      tierText.setAttribute('position', `${cardW / 2 - 0.12} ${cardH / 2 - 0.28} 0.01`);
-      wrapper.appendChild(tierText);
-
-      // Skill name (main heading)
-      const skillName = document.createElement('a-text');
-      skillName.setAttribute('value',    skill.skill);
-      skillName.setAttribute('align',    'center');
-      skillName.setAttribute('color',    '#e2d9f3');
-      skillName.setAttribute('width',    cardW - 0.3);
-      skillName.setAttribute('position', `0 0.42 0.01`);
-      skillName.setAttribute('font', 'https://cdn.aframe.io/fonts/Exo2Bold.fnt');
-      wrapper.appendChild(skillName);
-
-      // Divider
-      const div = document.createElement('a-plane');
-      div.setAttribute('width',  cardW - 0.4);
-      div.setAttribute('height', 0.02);
-      div.setAttribute('position', `0 0.15 0.01`);
-      div.setAttribute('color', color);
-      div.setAttribute('opacity', '0.5');
-      wrapper.appendChild(div);
-
-      // Required / Current scores
-      const scores = document.createElement('a-text');
-      scores.setAttribute('value',    `Required: ${req}/10     Current: ${cur}/10`);
-      scores.setAttribute('align',    'center');
-      scores.setAttribute('color',    '#94a3b8');
-      scores.setAttribute('width',    cardW - 0.2);
-      scores.setAttribute('position', `0 -0.08 0.01`);
-      wrapper.appendChild(scores);
-
-      // Gap value (large)
-      const gapText = document.createElement('a-text');
-      gapText.setAttribute('value',    gap);
-      gapText.setAttribute('align',    'center');
-      gapText.setAttribute('color',    color);
-      gapText.setAttribute('width',    2.5);
-      gapText.setAttribute('position', `0 -0.44 0.01`);
-      gapText.setAttribute('font', 'https://cdn.aframe.io/fonts/Exo2Bold.fnt');
-      wrapper.appendChild(gapText);
-
-      // Insight text
-      const insight = document.createElement('a-text');
-      const insightVal = skill.insight ? skill.insight.substring(0, 80) + (skill.insight.length > 80 ? '…' : '') : '';
-      insight.setAttribute('value',    insightVal);
-      insight.setAttribute('align',    'center');
-      insight.setAttribute('color',    '#64748b');
-      insight.setAttribute('width',    cardW - 0.3);
-      insight.setAttribute('position', `0 -0.76 0.01`);
-      wrapper.appendChild(insight);
-
-      // Hover animation
-      wrapper.setAttribute('animation__scale',
-        'property: scale; to: 1.04 1.04 1.04; dur: 250; startEvents: mouseenter; easing: easeOutQuad');
-      wrapper.setAttribute('animation__scaleback',
-        'property: scale; to: 1 1 1; dur: 250; startEvents: mouseleave; easing: easeOutQuad');
-
-      container.appendChild(wrapper);
-    });
-
-    // If no role/skills provided, show a fallback card on back wall
-    if (top3.length === 0) {
-      const fallback = document.createElement('a-entity');
-      fallback.setAttribute('position', '0 2.2 -7.6');
-
-      const fp = document.createElement('a-plane');
-      fp.setAttribute('width',  3.2);
-      fp.setAttribute('height', 1.6);
-      fp.setAttribute('material', 'color: #12123a; opacity: 0.9; transparent: true');
-      fallback.appendChild(fp);
-
-      const ft = document.createElement('a-text');
-      ft.setAttribute('value',    'Select an HR role on the\ndashboard to see skill cards');
-      ft.setAttribute('align',    'center');
-      ft.setAttribute('color',    '#a78bfa');
-      ft.setAttribute('width',    2.8);
-      ft.setAttribute('position', '0 0 0.01');
-      fallback.appendChild(ft);
-
-      container.appendChild(fallback);
-    }
-  </script>
+// Auto-start on first user gesture
+let audioStarted = false;
+document.addEventListener('click', function autoStart() {
+  if (!audioStarted) { audioStarted = true; enableSound(); }
+  document.removeEventListener('click', autoStart);
+}, { capture: true });
+</script>
 </body>
 </html>
