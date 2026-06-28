@@ -152,8 +152,21 @@ export default function App() {
           <div className="space-y-8">
             {/* Role overview */}
             <section className="bg-purple-900/30 border border-purple-500/30 rounded-2xl p-6">
-              <h2 className="text-lg font-semibold mb-2 text-purple-200">Role Overview</h2>
-              <p className="text-slate-300 text-sm leading-relaxed">{result.summary}</p>
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold mb-2 text-purple-200">Role Overview</h2>
+                  <p className="text-slate-300 text-sm leading-relaxed">{result.summary}</p>
+                </div>
+                <a
+                  href={`/vr-training.html?role=${encodeURIComponent(activeRole)}&skills=${encodeURIComponent(JSON.stringify(result.skills))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 shrink-0 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 transition-all rounded-xl px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-900/40 whitespace-nowrap"
+                >
+                  <span className="text-lg">🥽</span>
+                  Enter VR Training Room
+                </a>
+              </div>
             </section>
 
             {/* Summary card — fix #1 */}

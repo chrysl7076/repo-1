@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VR Training Room — XR Skills Analyzer</title>
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; font-family: Arial, sans-serif; }
+
+    #back-btn {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 9999;
+      background: rgba(124, 58, 237, 0.85);
+      color: #fff;
+      border: 1px solid rgba(167, 139, 250, 0.5);
+      border-radius: 10px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: background 0.2s;
+    }
+    #back-btn:hover { background: rgba(109, 40, 217, 0.95); }
+
+    #role-label {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      background: rgba(0, 0, 0, 0.6);
+      color: rgba(167, 139, 250, 0.9);
+      border: 1px solid rgba(124, 58, 237, 0.4);
+      border-radius: 10px;
+      padding: 6px 18px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      backdrop-filter: blur(8px);
+      white-space: nowrap;
+    }
+
+    #hint {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      color: rgba(255,255,255,0.4);
+      font-size: 12px;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    a-scene { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+
+  <button id="back-btn" onclick="history.back()">← Back to Dashboard</button>
+  <div id="role-label">Loading…</div>
+  <div id="hint">Click + drag to look around</div>
+
+  <a-scene
+    background="color: #080818"
+    renderer="antialias: true; colorManagement: true"
+    vr-mode-ui="enabled: false"
+    loading-screen="backgroundColor: #080818; dotsColor: #7c3aed"
+  >
+
+    <!-- ── Camera ─────────────────────────────────────────────────────── -->
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera
+        look-controls="pointerLockEnabled: false; magicWindowTrackingEnabled: false"
+        wasd-controls="enabled: false"
+        cursor="rayOrigin: mouse"
+        fov="75"
+      ></a-camera>
+    </a-entity>
+
+    <!-- ── Lighting ───────────────────────────────────────────────────── -->
+    <a-light type="ambient" color="#9370DB" intensity="0.6"></a-light>
+    <a-light type="directional" color="#ffffff" intensity="0.8" position="0 6 -4"></a-light>
+    <a-light type="point" color="#7c3aed" intensity="1.8" distance="18" position="0 4 0"></a-light>
+    <a-light type="point" color="#0ea5e9" intensity="1.0" distance="12" position="-5 3 -5"></a-light>
+    <a-light type="point" color="#a855f7" intensity="0.8" distance="10" position="5 2 3"></a-light>
+
+    <!-- ── Room geometry ─────────────────────────────────────────────── -->
+    <!-- Floor -->
+    <a-plane
+      position="0 0 0"
+      rotation="-90 0 0"
+      width="20" height="20"
+      material="color: #0d0d2b; roughness: 0.3; metalness: 0.6"
+    ></a-plane>
+
+    <!-- Ceiling -->
+    <a-plane
+      position="0 5 0"
+      rotation="90 0 0"
+      width="20" height="20"
+      material="color: #0a0a1e; roughness: 0.8"
+    ></a-plane>
+
+    <!-- Back wall -->
+    <a-plane
+      position="0 2.5 -8"
+      rotation="0 0 0"
+      width="20" height="5"
+      material="color: #0f0f2e; roughness: 0.9"
+    ></a-plane>
+
+    <!-- Front wall -->
+    <a-plane
+      position="0 2.5 8"
+      rotation="0 180 0"
+      width="20" height="5"
+      material="color: #0f0f2e; roughness: 0.9"
+    ></a-plane>
+
+    <!-- Left wall -->
+    <a-plane
+      position="-8 2.5 0"
+      rotation="0 90 0"
+      width="20" height="5"
+      material="color: #0f0f2e; roughness: 0.9"
+    ></a-plane>
+
+    <!-- Right wall -->
+    <a-plane
+      position="8 2.5 0"
+      rotation="0 -90 0"
+      width="20" height="5"
+      material="color: #0f0f2e; roughness: 0.9"
+    ></a-plane>
+
+    <!-- Floor grid lines (decorative) -->
+    <a-entity id="floor-grid">
+      <!-- Glowing floor edge strips -->
+      <a-box position="0 0.01 -8"   width="20" height="0.02" depth="0.08" color="#7c3aed" opacity="0.5"></a-box>
+      <a-box position="0 0.01  8"   width="20" height="0.02" depth="0.08" color="#7c3aed" opacity="0.5"></a-box>
+      <a-box position="-8 0.01 0"   width="0.08" height="0.02" depth="20" color="#7c3aed" opacity="0.5"></a-box>
+      <a-box position=" 8 0.01 0"   width="0.08" height="0.02" depth="20" color="#7c3aed" opacity="0.5"></a-box>
+      <!-- Center cross -->
+      <a-box position="0 0.01 0"    width="20" height="0.02" depth="0.04" color="#4f46e5" opacity="0.3"></a-box>
+      <a-box position="0 0.01 0"    width="0.04" height="0.02" depth="20" color="#4f46e5" opacity="0.3"></a-box>
+    </a-entity>
+
+    <!-- Ceiling light strips -->
+    <a-box position=" 0 4.98  0" width="16" height="0.02" depth="0.12" color="#a78bfa" opacity="0.6"></a-box>
+    <a-box position=" 0 4.98  0" width="0.12" height="0.02" depth="16" color="#a78bfa" opacity="0.6"></a-box>
+
+    <!-- Corner pillars -->
+    <a-box position="-7.8 2.5 -7.8" width="0.3" height="5" depth="0.3" color="#1e1b4b" roughness="0.4" metalness="0.6"></a-box>
+    <a-box position=" 7.8 2.5 -7.8" width="0.3" height="5" depth="0.3" color="#1e1b4b" roughness="0.4" metalness="0.6"></a-box>
+    <a-box position="-7.8 2.5  7.8" width="0.3" height="5" depth="0.3" color="#1e1b4b" roughness="0.4" metalness="0.6"></a-box>
+    <a-box position=" 7.8 2.5  7.8" width="0.3" height="5" depth="0.3" color="#1e1b4b" roughness="0.4" metalness="0.6"></a-box>
+
+    <!-- ── Centre welcome display ────────────────────────────────────── -->
+    <!-- Holographic platform -->
+    <a-cylinder
+      position="0 0.05 0"
+      radius="1.2" height="0.1"
+      material="color: #7c3aed; opacity: 0.4; transparent: true; emissive: #7c3aed; emissiveIntensity: 0.5"
+    ></a-cylinder>
+    <a-cylinder
+      position="0 0.04 0"
+      radius="1.5" height="0.02"
+      material="color: #4f46e5; opacity: 0.2; transparent: true"
+    ></a-cylinder>
+
+    <!-- Floating welcome panel -->
+    <a-entity position="0 3.2 0">
+      <!-- Panel background -->
+      <a-plane
+        width="4.5" height="1.4"
+        material="color: #1e1b4b; opacity: 0.88; transparent: true; side: double"
+        position="0 0 0"
+      ></a-plane>
+      <!-- Purple border top -->
+      <a-plane width="4.5" height="0.06" color="#7c3aed" position="0 0.67 0.01"></a-plane>
+      <!-- Purple border bottom -->
+      <a-plane width="4.5" height="0.06" color="#7c3aed" position="0 -0.67 0.01"></a-plane>
+
+      <!-- Main title -->
+      <a-text
+        value="XR Training Environment"
+        align="center"
+        color="#e2d9f3"
+        width="4.2"
+        position="0 0.22 0.02"
+        font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"
+      ></a-text>
+      <!-- Sub text -->
+      <a-text
+        id="welcome-sub"
+        value="Select a role on the dashboard to load your skills"
+        align="center"
+        color="#a78bfa"
+        width="4"
+        position="0 -0.18 0.02"
+      ></a-text>
+    </a-entity>
+
+    <!-- Vertical glow beam under welcome panel -->
+    <a-cylinder
+      position="0 1.6 0"
+      radius="0.04" height="3.2"
+      material="color: #7c3aed; opacity: 0.25; transparent: true; emissive: #7c3aed; emissiveIntensity: 0.8"
+    ></a-cylinder>
+
+    <!-- ── Skill card slots (populated by JS) ───────────────────────── -->
+    <a-entity id="skill-cards"></a-entity>
+
+    <!-- ── Floating orbs (decorative) ───────────────────────────────── -->
+    <a-sphere position="-6 3.5 -6" radius="0.18" color="#7c3aed" opacity="0.7"
+      animation="property: position; to: -6 3.9 -6; dur: 2800; loop: true; dir: alternate; easing: easeInOutSine">
+    </a-sphere>
+    <a-sphere position="6 2.8 -6" radius="0.14" color="#0ea5e9" opacity="0.7"
+      animation="property: position; to: 6 3.3 -6; dur: 3200; loop: true; dir: alternate; easing: easeInOutSine">
+    </a-sphere>
+    <a-sphere position="-6 2.6 5" radius="0.16" color="#a855f7" opacity="0.7"
+      animation="property: position; to: -6 3.1 5; dur: 2500; loop: true; dir: alternate; easing: easeInOutSine">
+    </a-sphere>
+    <a-sphere position="6 3.2 5" radius="0.12" color="#6366f1" opacity="0.7"
+      animation="property: position; to: 6 3.7 5; dur: 3600; loop: true; dir: alternate; easing: easeInOutSine">
+    </a-sphere>
+
+  </a-scene>
+
+  <script>
+    // ── Read role + skills from URL params ─────────────────────────────────
+    const params  = new URLSearchParams(location.search);
+    const role    = params.get('role') || '';
+    const rawSkills = params.get('skills') || '';
+
+    let skills = [];
+    try { skills = JSON.parse(decodeURIComponent(rawSkills)); } catch (_) {}
+
+    // ── Update role label in HUD ──────────────────────────────────────────
+    const roleLabel = document.getElementById('role-label');
+    if (role) {
+      roleLabel.textContent = role + ' — VR Training Room';
+    } else {
+      roleLabel.textContent = 'XR Training Environment';
+    }
+
+    // ── Update welcome sub-text once scene loads ──────────────────────────
+    document.querySelector('a-scene').addEventListener('loaded', () => {
+      const sub = document.getElementById('welcome-sub');
+      if (role && sub) {
+        sub.setAttribute('value', role);
+        sub.setAttribute('color', '#c4b5fd');
+      }
+    });
+
+    // ── Build skill cards ─────────────────────────────────────────────────
+    //  top-3 skills by gap (required − current), descending
+    const top3 = [...skills]
+      .map(s => ({ ...s, gap: s.required - s.current }))
+      .sort((a, b) => b.gap - a.gap)
+      .slice(0, 3);
+
+    function gapColor(gap) {
+      if (gap >= 5) return '#e11d48';
+      if (gap >= 2) return '#eab308';
+      return '#22c55e';
+    }
+    function gapLabel(gap) {
+      if (gap >= 5) return 'CRITICAL';
+      if (gap >= 2) return 'DEVELOPING';
+      return 'READY';
+    }
+
+    // Card positions: back wall (card 0), left wall (card 1), right wall (card 2)
+    const CARD_CONFIGS = [
+      // back wall — facing camera (user starts looking north / -z)
+      { position: '0 2.2 -7.6',   rotation: '0 0 0' },
+      // left wall — facing right (+x)
+      { position: '-7.6 2.2 -1',  rotation: '0 90 0' },
+      // right wall — facing left (-x)
+      { position: '7.6 2.2 -1',   rotation: '0 -90 0' },
+    ];
+
+    const container = document.getElementById('skill-cards');
+
+    top3.forEach((skill, idx) => {
+      const cfg   = CARD_CONFIGS[idx];
+      const color = gapColor(skill.gap);
+      const label = gapLabel(skill.gap);
+      const gap   = skill.gap > 0 ? `+${skill.gap} pts gap` : 'Strength';
+      const req   = skill.required ?? '—';
+      const cur   = skill.current  ?? '—';
+
+      const cardW = 3.2;
+      const cardH = 2.0;
+
+      // Wrapper entity at wall position
+      const wrapper = document.createElement('a-entity');
+      wrapper.setAttribute('position', cfg.position);
+      wrapper.setAttribute('rotation', cfg.rotation);
+
+      // Glow backdrop (slightly behind card)
+      const glow = document.createElement('a-plane');
+      glow.setAttribute('width',  cardW + 0.25);
+      glow.setAttribute('height', cardH + 0.25);
+      glow.setAttribute('position', '0 0 -0.02');
+      glow.setAttribute('material', `color: ${color}; opacity: 0.12; transparent: true; side: double`);
+      wrapper.appendChild(glow);
+
+      // Card face
+      const face = document.createElement('a-plane');
+      face.setAttribute('width',  cardW);
+      face.setAttribute('height', cardH);
+      face.setAttribute('material', 'color: #12123a; opacity: 0.92; transparent: true; side: double');
+      wrapper.appendChild(face);
+
+      // Top colour stripe
+      const stripe = document.createElement('a-plane');
+      stripe.setAttribute('width',  cardW);
+      stripe.setAttribute('height', 0.07);
+      stripe.setAttribute('position', `0 ${cardH / 2 - 0.035} 0.005`);
+      stripe.setAttribute('color', color);
+      wrapper.appendChild(stripe);
+
+      // Card number badge
+      const badge = document.createElement('a-text');
+      badge.setAttribute('value',    `#${idx + 1}`);
+      badge.setAttribute('align',    'left');
+      badge.setAttribute('color',    color);
+      badge.setAttribute('width',    1.2);
+      badge.setAttribute('position', `-${cardW / 2 - 0.18} ${cardH / 2 - 0.28} 0.01`);
+      wrapper.appendChild(badge);
+
+      // Gap tier badge
+      const tierText = document.createElement('a-text');
+      tierText.setAttribute('value',    label);
+      tierText.setAttribute('align',    'right');
+      tierText.setAttribute('color',    color);
+      tierText.setAttribute('width',    1.4);
+      tierText.setAttribute('position', `${cardW / 2 - 0.12} ${cardH / 2 - 0.28} 0.01`);
+      wrapper.appendChild(tierText);
+
+      // Skill name (main heading)
+      const skillName = document.createElement('a-text');
+      skillName.setAttribute('value',    skill.skill);
+      skillName.setAttribute('align',    'center');
+      skillName.setAttribute('color',    '#e2d9f3');
+      skillName.setAttribute('width',    cardW - 0.3);
+      skillName.setAttribute('position', `0 0.42 0.01`);
+      skillName.setAttribute('font', 'https://cdn.aframe.io/fonts/Exo2Bold.fnt');
+      wrapper.appendChild(skillName);
+
+      // Divider
+      const div = document.createElement('a-plane');
+      div.setAttribute('width',  cardW - 0.4);
+      div.setAttribute('height', 0.02);
+      div.setAttribute('position', `0 0.15 0.01`);
+      div.setAttribute('color', color);
+      div.setAttribute('opacity', '0.5');
+      wrapper.appendChild(div);
+
+      // Required / Current scores
+      const scores = document.createElement('a-text');
+      scores.setAttribute('value',    `Required: ${req}/10     Current: ${cur}/10`);
+      scores.setAttribute('align',    'center');
+      scores.setAttribute('color',    '#94a3b8');
+      scores.setAttribute('width',    cardW - 0.2);
+      scores.setAttribute('position', `0 -0.08 0.01`);
+      wrapper.appendChild(scores);
+
+      // Gap value (large)
+      const gapText = document.createElement('a-text');
+      gapText.setAttribute('value',    gap);
+      gapText.setAttribute('align',    'center');
+      gapText.setAttribute('color',    color);
+      gapText.setAttribute('width',    2.5);
+      gapText.setAttribute('position', `0 -0.44 0.01`);
+      gapText.setAttribute('font', 'https://cdn.aframe.io/fonts/Exo2Bold.fnt');
+      wrapper.appendChild(gapText);
+
+      // Insight text
+      const insight = document.createElement('a-text');
+      const insightVal = skill.insight ? skill.insight.substring(0, 80) + (skill.insight.length > 80 ? '…' : '') : '';
+      insight.setAttribute('value',    insightVal);
+      insight.setAttribute('align',    'center');
+      insight.setAttribute('color',    '#64748b');
+      insight.setAttribute('width',    cardW - 0.3);
+      insight.setAttribute('position', `0 -0.76 0.01`);
+      wrapper.appendChild(insight);
+
+      // Hover animation
+      wrapper.setAttribute('animation__scale',
+        'property: scale; to: 1.04 1.04 1.04; dur: 250; startEvents: mouseenter; easing: easeOutQuad');
+      wrapper.setAttribute('animation__scaleback',
+        'property: scale; to: 1 1 1; dur: 250; startEvents: mouseleave; easing: easeOutQuad');
+
+      container.appendChild(wrapper);
+    });
+
+    // If no role/skills provided, show a fallback card on back wall
+    if (top3.length === 0) {
+      const fallback = document.createElement('a-entity');
+      fallback.setAttribute('position', '0 2.2 -7.6');
+
+      const fp = document.createElement('a-plane');
+      fp.setAttribute('width',  3.2);
+      fp.setAttribute('height', 1.6);
+      fp.setAttribute('material', 'color: #12123a; opacity: 0.9; transparent: true');
+      fallback.appendChild(fp);
+
+      const ft = document.createElement('a-text');
+      ft.setAttribute('value',    'Select an HR role on the\ndashboard to see skill cards');
+      ft.setAttribute('align',    'center');
+      ft.setAttribute('color',    '#a78bfa');
+      ft.setAttribute('width',    2.8);
+      ft.setAttribute('position', '0 0 0.01');
+      fallback.appendChild(ft);
+
+      container.appendChild(fallback);
+    }
+  </script>
+</body>
+</html>
