@@ -618,78 +618,223 @@ function cinematicLoop(ts) {
 requestAnimationFrame(cinematicLoop);
 
 // ════════════════════════════════════════════════════════════════════════════
-// WEB AUDIO — ambient futuristic hum
+// SPATIAL AUDIO — cinematic holodeck soundscape
+//
+// Signal chain:
+//   [Sub-bass drones]  → bassFilter → compressor → reverb ─┐
+//   [FM bass carrier]  → bassFilter ──────────────────────→─┤→ masterGain → out
+//   [Noise shimmer]    → shimFilter ──────────────────────→─┤
+//   [High sparkle osc] ────────────────────────────────────→─┘
+//
+// LFOs: bassFilter.frequency / masterGain.gain (breath) / sub-osc.frequency
 // ════════════════════════════════════════════════════════════════════════════
 let audioCtx   = null;
 let masterGain = null;
 let soundOn    = false;
-let audioBuilt = false;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function osc(ctx, type, freq, detuneCents = 0) {
+  const o = ctx.createOscillator();
+  o.type = type; o.frequency.value = freq; o.detune.value = detuneCents;
+  o.start(); return o;
+}
+function gain(ctx, val) {
+  const g = ctx.createGain(); g.gain.value = val; return g;
+}
+function biquad(ctx, type, freq, q = 1) {
+  const f = ctx.createBiquadFilter();
+  f.type = type; f.frequency.value = freq; f.Q.value = q; return f;
+}
+function lfo(ctx, freq, amt, target) {
+  const l = osc(ctx, 'sine', freq); // never routed to output
+  const g = gain(ctx, amt);
+  l.connect(g); g.connect(target); return l;
+}
+
+// Programmatic reverb — decaying white noise impulse
+function makeReverb(ctx, durationSec = 3.2, decayPow = 1.6) {
+  const sr  = ctx.sampleRate;
+  const len = Math.floor(sr * durationSec);
+  const buf = ctx.createBuffer(2, len, sr);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) {
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decayPow);
+    }
+  }
+  const c = ctx.createConvolver(); c.buffer = buf; return c;
+}
+
+// Looping white-noise buffer source
+function makeNoise(ctx, durSec = 3) {
+  const sr  = ctx.sampleRate;
+  const len = Math.floor(sr * durSec);
+  const buf = ctx.createBuffer(1, len, sr);
+  const d   = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buf; src.loop = true; src.start(); return src;
+}
 
 function buildAudio() {
-  if (audioBuilt) return;
-  audioBuilt = true;
-  audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  audioCtx = new AC();
 
-  const filter = audioCtx.createBiquadFilter();
-  filter.type  = 'lowpass';
-  filter.frequency.value = 290;
-  filter.Q.value = 2.0;
-
-  masterGain = audioCtx.createGain();
-  masterGain.gain.value = 0;
-
-  filter.connect(masterGain);
+  // ── Master output ────────────────────────────────────────────────────────
+  masterGain = gain(audioCtx, 0); // starts silent, fades in
   masterGain.connect(audioCtx.destination);
 
-  // Layered oscillators for a rich drone
+  // ── Dynamics compressor (prevents clipping) ──────────────────────────────
+  const comp = audioCtx.createDynamicsCompressor();
+  comp.threshold.value = -18; comp.knee.value = 10;
+  comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.25;
+  comp.connect(masterGain);
+
+  // ── Spatial reverb (wet path) ────────────────────────────────────────────
+  const reverb    = makeReverb(audioCtx, 3.2, 1.6);
+  const reverbGain = gain(audioCtx, 0.55);
+  reverb.connect(reverbGain); reverbGain.connect(comp);
+
+  // Dry path (keeps low-end tight)
+  const dryGain = gain(audioCtx, 0.50);
+  dryGain.connect(comp);
+
+  // Bus that feeds both wet + dry
+  function connectBus(node) { node.connect(reverb); node.connect(dryGain); }
+
+  // ── Bass filter (low-pass with resonance) ────────────────────────────────
+  const bassFilter = biquad(audioCtx, 'lowpass', 190, 1.4);
+  connectBus(bassFilter);
+
+  // ─── Sub-bass layer (30 Hz – the foundation you feel) ────────────────────
+  const sub1 = osc(audioCtx, 'sine', 30, -6);
+  const sub2 = osc(audioCtx, 'sine', 30, +6);
+  sub1.connect(gain(audioCtx, 0.16)).connect(bassFilter);
+  sub2.connect(gain(audioCtx, 0.13)).connect(bassFilter);
+
+  // Sub-bass slow pitch wobble (adds organic life)
+  lfo(audioCtx, 0.038, 2.2, sub1.frequency);
+  lfo(audioCtx, 0.052, 1.8, sub2.frequency);
+
+  // ─── Bass hum layer (55 Hz – primary tone) ───────────────────────────────
+  const b1 = osc(audioCtx, 'sine', 55, -4);
+  const b2 = osc(audioCtx, 'sine', 55, +4);
+  b1.connect(gain(audioCtx, 0.10)).connect(bassFilter);
+  b2.connect(gain(audioCtx, 0.10)).connect(bassFilter);
+
+  // ─── FM synthesis on bass (55 Hz carrier, 55 Hz modulator) ─────────────
+  // Adds mechanical/electronic texture to the hum
+  const fmMod      = osc(audioCtx, 'sine', 55);
+  const fmModAmt   = gain(audioCtx, 22);        // modulation index ≈ 0.4
+  const fmCarrier  = osc(audioCtx, 'sine', 55, +12);
+  fmMod.connect(fmModAmt).connect(fmCarrier.frequency);
+  fmCarrier.connect(gain(audioCtx, 0.07)).connect(bassFilter);
+
+  // ─── Warmth harmonics ────────────────────────────────────────────────────
+  osc(audioCtx, 'triangle', 82.5).connect(gain(audioCtx, 0.045)).connect(bassFilter);
+  osc(audioCtx, 'sine',     110 ).connect(gain(audioCtx, 0.038)).connect(bassFilter);
+  osc(audioCtx, 'sine',     165 ).connect(gain(audioCtx, 0.018)).connect(bassFilter);
+
+  // Bass filter LFO sweep — slow breathing of the low-end
+  bassFilter.frequency.value = 185;
+  lfo(audioCtx, 0.055, 65, bassFilter.frequency);
+
+  // ─── Shimmer layer (noise through narrow band-pass at 3.2 kHz) ──────────
+  // Creates the "energy field" high-frequency texture
+  const shimFilter1 = biquad(audioCtx, 'bandpass', 3200, 8);
+  const shimFilter2 = biquad(audioCtx, 'bandpass', 5100, 12);
+
+  const noise1 = makeNoise(audioCtx, 3.7);
+  const noise2 = makeNoise(audioCtx, 2.9);
+  noise1.connect(shimFilter1);
+  noise2.connect(shimFilter2);
+
+  const shimBus = gain(audioCtx, 1);
+  shimFilter1.connect(gain(audioCtx, 0.022)).connect(shimBus);
+  shimFilter2.connect(gain(audioCtx, 0.010)).connect(shimBus);
+
+  // Shimmer LFO — slowly sweeps the shimmer band for "scanning" effect
+  lfo(audioCtx, 0.031, 300, shimFilter1.frequency);
+  lfo(audioCtx, 0.045, 450, shimFilter2.frequency);
+
+  shimBus.connect(reverb);
+  shimBus.connect(gain(audioCtx, 0.4)).connect(comp); // mostly wet
+
+  // ─── High sparkle oscillators (metallic presence) ────────────────────────
+  // Non-harmonic intervals for an alien/sci-fi quality
+  const sparkBus = gain(audioCtx, 1);
   [
-    { type: 'sine',     freq: 55,   vol: 0.12 },
-    { type: 'sine',     freq: 110,  vol: 0.06 },
-    { type: 'triangle', freq: 82.5, vol: 0.05 },
-    { type: 'sine',     freq: 165,  vol: 0.025 },
-    { type: 'sawtooth', freq: 27.5, vol: 0.03 },
-  ].forEach(({ type, freq, vol }) => {
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.type = type; o.frequency.value = freq; g.gain.value = vol;
-    o.connect(g); g.connect(filter); o.start();
+    { freq: 1319, detune: -8,  vol: 0.0055 }, // E6 slightly flat
+    { freq: 1760, detune: +5,  vol: 0.0038 }, // A6 slightly sharp
+    { freq: 2093, detune: -12, vol: 0.0022 }, // C7 flat
+    { freq: 2637, detune: +9,  vol: 0.0014 }, // E7 sharp
+  ].forEach(({ freq, detune, vol }) => {
+    osc(audioCtx, 'sine', freq, detune)
+      .connect(gain(audioCtx, vol))
+      .connect(sparkBus);
   });
 
-  // Slow filter sweep — "breathing" quality
-  (function sweep() {
-    if (!audioCtx) return;
-    const t = audioCtx.currentTime;
-    filter.frequency.setTargetAtTime(240 + 90 * Math.sin(t * 0.22), t, 1.0);
-    setTimeout(sweep, 900);
-  })();
+  // Slow amplitude tremolo on sparkle
+  const sparkGainNode = gain(audioCtx, 0.8);
+  sparkBus.connect(sparkGainNode);
+  lfo(audioCtx, 0.072, 0.18, sparkGainNode.gain);
+  sparkGainNode.connect(reverb);
+
+  // ─── Master amplitude breath (very slow volume undulation) ────────────────
+  // Makes the whole soundscape feel like it's "breathing"
+  lfo(audioCtx, 0.024, 0.07, masterGain.gain);
 }
 
 function enableSound() {
   buildAudio();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  soundOn = true;
-  masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
-  masterGain.gain.setTargetAtTime(1, audioCtx.currentTime, 1.8);
-  document.getElementById('sound-btn').textContent = '🔊';
+  if (!audioCtx) return;
+  audioCtx.resume().then(() => {
+    soundOn = true;
+    masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    // Slow cinematic fade-in over ~6 seconds (timeConstant 2 = 86% at 2×TC = 4s)
+    masterGain.gain.setTargetAtTime(0.93, audioCtx.currentTime, 2.0);
+    document.getElementById('sound-btn').textContent = '🔊';
+  });
 }
+
 function disableSound() {
-  if (!masterGain) return;
+  if (!masterGain || !audioCtx) return;
   soundOn = false;
-  masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.9);
+  masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+  masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.7);
   document.getElementById('sound-btn').textContent = '🔇';
 }
 
+// ── Toggle button ─────────────────────────────────────────────────────────────
 document.getElementById('sound-btn').addEventListener('click', (e) => {
   e.stopPropagation();
   soundOn ? disableSound() : enableSound();
 });
 
-// Auto-start on first user gesture
-let audioStarted = false;
-document.addEventListener('click', function autoStart() {
-  if (!audioStarted) { audioStarted = true; enableSound(); }
-  document.removeEventListener('click', autoStart);
-}, { capture: true });
+// ── Auto-start: attempt immediately, retry on first gesture ───────────────────
+// AudioContext starts in 'suspended' on most browsers until a user gesture;
+// we try to resume on load and quietly retry on the first interaction.
+function tryStart() {
+  if (soundOn) return;
+  enableSound();
+}
+
+// Attempt on load (works when browser allows autoplay)
+if (document.readyState === 'complete') {
+  tryStart();
+} else {
+  window.addEventListener('load', tryStart);
+}
+
+// Guaranteed fallback: first user gesture resumes a still-suspended context
+['pointerdown', 'touchstart', 'keydown'].forEach(evt => {
+  document.addEventListener(evt, function gesture() {
+    tryStart();
+    document.removeEventListener(evt, gesture, true);
+  }, { capture: true, passive: true });
+});
 </script>
 </body>
 </html>
